@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
-  runApp(BusTicketApp());
+  runApp(const BusTicketApp());
 }
 
 class BusTicketApp extends StatelessWidget {
+  const BusTicketApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bus Ticket Booking',
-      home: TicketBookingPage(),
+      title: 'Red Bus Booking',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(primarySwatch: Colors.red),
+      home: const TicketBookingPage(),
     );
   }
 }
 
 class TicketBookingPage extends StatefulWidget {
+  const TicketBookingPage({super.key});
+
   @override
-  _TicketBookingPageState createState() => _TicketBookingPageState();
+  State<TicketBookingPage> createState() => _TicketBookingPageState();
 }
 
 class _TicketBookingPageState extends State<TicketBookingPage> {
@@ -27,93 +33,132 @@ class _TicketBookingPageState extends State<TicketBookingPage> {
   String destination = '';
   DateTime? travelDate;
   TimeOfDay? travelTime;
+  int ticketQty = 1;
+  String? selectedBus;
+
+  final List<String> buses = [
+    "National",
+    "Alagan",
+    "Chakra",
+    "PSS",
+    "Friends",
+    "Mettur",
+    "Vinagar",
+    "Essar",
+    "Galaxy",
+    "Shakti",
+    "Royal",
+    "Express",
+    "Velan",
+    "Sundaram",
+    "Sakthi",
+    "GreenLine",
+    "BlueStar",
+    "RedLine",
+    "Delta",
+    "FastTrack",
+    "CityLink",
+    "MegaBus",
+    "SuperFast",
+    "Elite",
+    "Victory"
+  ];
+
+  late final Map<String, int> busRates;
+
   List<Map<String, dynamic>> bookings = [];
 
+  @override
+  void initState() {
+    super.initState();
+    busRates = {for (var bus in buses) bus: 500 + Random().nextInt(2001)};
+  }
+
   void _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: travelDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
-    if (picked != null) {
-      setState(() {
-        travelDate = picked;
-      });
-    }
+    if (picked != null) setState(() => travelDate = picked);
   }
 
   void _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
+    final picked = await showTimePicker(
       context: context,
       initialTime: travelTime ?? TimeOfDay.now(),
     );
-    if (picked != null) {
-      setState(() {
-        travelTime = picked;
-      });
-    }
+    if (picked != null) setState(() => travelTime = picked);
   }
 
   void _confirmBooking() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Confirm Ticket'),
+        title: Text('Confirm Ticket - $selectedBus'),
         content: Text(
-            'Do you want to confirm the ticket for $name from $source to $destination on ${travelDate!.toLocal().toString().split(' ')[0]} at ${travelTime!.format(context)}?'),
+            'Confirm $ticketQty ticket(s) for $name from $source to $destination on ${travelDate!.day}-${travelDate!.month}-${travelDate!.year} at ${travelTime!.format(context)}?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _finalizeBooking();
-            },
-            child: Text('Confirm'),
-          ),
+              onPressed: () {
+                Navigator.pop(context);
+                _finalizeBooking();
+              },
+              child: const Text('Confirm')),
         ],
       ),
     );
   }
 
   void _finalizeBooking() {
-    final DateTime combinedDateTime = DateTime(
-      travelDate!.year,
-      travelDate!.month,
-      travelDate!.day,
-      travelTime!.hour,
-      travelTime!.minute,
-    );
+    final combinedDateTime = DateTime(travelDate!.year, travelDate!.month,
+        travelDate!.day, travelTime!.hour, travelTime!.minute);
+
+    final totalPrice = busRates[selectedBus]! * ticketQty;
 
     setState(() {
       bookings.add({
         'name': name,
-        'source': source,
-        'destination': destination,
+        'from': source,
+        'to': destination,
+        'bus': selectedBus,
         'date': combinedDateTime,
+        'qty': ticketQty,
+        'totalPrice': totalPrice,
       });
       name = '';
       source = '';
       destination = '';
       travelDate = null;
       travelTime = null;
+      ticketQty = 1;
+      selectedBus = null;
       _formKey.currentState!.reset();
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Ticket confirmed successfully!")),
-    );
+        const SnackBar(content: Text("Ticket booked successfully!")));
   }
 
   void _bookTicket() {
     if (_formKey.currentState!.validate() &&
         travelDate != null &&
-        travelTime != null) {
+        travelTime != null &&
+        selectedBus != null) {
       _formKey.currentState!.save();
+      if (ticketQty > 5) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Cannot book more than 5 tickets per person")));
+        return;
+      }
       _confirmBooking();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Please fill all fields including bus selection")));
     }
   }
 
@@ -132,134 +177,119 @@ class _TicketBookingPageState extends State<TicketBookingPage> {
       children: [
         if (travelDate != null)
           Text(
-            "📅 Date: ${travelDate!.toLocal().toString().split(' ')[0]}",
-            style: TextStyle(fontSize: 16),
-          ),
-        if (travelTime != null)
-          Text(
-            "⏰ Time: ${travelTime!.format(context)}",
-            style: TextStyle(fontSize: 16),
-          ),
+              "📅 Date: ${travelDate!.day}-${travelDate!.month}-${travelDate!.year}"),
+        if (travelTime != null) Text("⏰ Time: ${travelTime!.format(context)}"),
         if (travelDate == null && travelTime == null)
-          Text(
-            "No date/time selected",
-            style: TextStyle(color: Color(0xffd51010)),
-          ),
+          const Text("No date/time selected",
+              style: TextStyle(color: Colors.red)),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bus Ticket Booking'),
-        backgroundColor: Colors.lightBlue,
+        title: const Text('Bus Ticket Booking'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.list),
-            onPressed: _showAllBookings,
-          )
+          IconButton(icon: const Icon(Icons.list), onPressed: _showAllBookings)
         ],
       ),
       body: Container(
-        width: screenWidth,
-        height: screenHeight,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xffd03fe6), Colors.purple.shade200],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+            gradient: LinearGradient(
+                colors: [Colors.red.shade100, Colors.red.shade300],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter)),
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(
               children: [
-                Text(
-                  "Fill Passenger Details",
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                SizedBox(height: 20),
                 TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Your Name',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
+                  decoration: const InputDecoration(
+                      labelText: 'Your Name', filled: true),
                   validator: (val) => val!.isEmpty ? 'Enter your name' : null,
                   onSaved: (val) => name = val!,
                 ),
-                SizedBox(height: 15),
+                const SizedBox(height: 10),
                 TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'From',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  validator: (val) => val!.isEmpty ? 'Enter source' : null,
+                  decoration:
+                      const InputDecoration(labelText: 'From', filled: true),
+                  validator: (val) =>
+                      val!.isEmpty ? 'Enter starting place' : null,
                   onSaved: (val) => source = val!,
                 ),
-                SizedBox(height: 15),
+                const SizedBox(height: 10),
                 TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'To',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
+                  decoration:
+                      const InputDecoration(labelText: 'To', filled: true),
                   validator: (val) => val!.isEmpty ? 'Enter destination' : null,
                   onSaved: (val) => destination = val!,
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                      labelText: 'Select Bus', filled: true),
+                  value: selectedBus,
+                  items: buses
+                      .map((bus) => DropdownMenuItem(
+                          value: bus, child: Text("$bus - ₹${busRates[bus]}")))
+                      .toList(),
+                  onChanged: (val) => setState(() => selectedBus = val),
+                  validator: (val) =>
+                      val == null ? 'Please select a bus' : null,
+                ),
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    Text("Pickup Date:",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Spacer(),
+                    const Text("Pickup Date:"),
+                    const Spacer(),
                     ElevatedButton(
-                      onPressed: () => _selectDate(context),
-                      child: Text('Select Date'),
-                    ),
+                        onPressed: () => _selectDate(context),
+                        child: const Text('Select Date')),
                   ],
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 5),
                 Row(
                   children: [
-                    Text("Pickup Time:",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Spacer(),
+                    const Text("Pickup Time:"),
+                    const Spacer(),
                     ElevatedButton(
-                      onPressed: () => _selectTime(context),
-                      child: Text('Select Time'),
-                    ),
+                        onPressed: () => _selectTime(context),
+                        child: const Text('Select Time')),
                   ],
                 ),
-                SizedBox(height: 15),
+                const SizedBox(height: 10),
                 _buildPickupDateTime(),
-                SizedBox(height: 30),
-                ElevatedButton.icon(
-                  icon: Icon(Icons.check),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.limeAccent,
-                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: _bookTicket,
-                  label: Text('Book Ticket',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Text("Tickets Qty:"),
+                    const Spacer(),
+                    IconButton(
+                        onPressed: () {
+                          if (ticketQty > 1) setState(() => ticketQty--);
+                        },
+                        icon: const Icon(Icons.remove)),
+                    Text("$ticketQty"),
+                    IconButton(
+                        onPressed: () {
+                          if (ticketQty < 5) setState(() => ticketQty++);
+                        },
+                        icon: const Icon(Icons.add)),
+                  ],
                 ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                    onPressed: _bookTicket,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 40, vertical: 15)),
+                    child: const Text("Book Ticket",
+                        style: TextStyle(fontWeight: FontWeight.bold))),
               ],
             ),
           ),
@@ -269,124 +299,99 @@ class _TicketBookingPageState extends State<TicketBookingPage> {
   }
 }
 
-class AllBookingsPage extends StatelessWidget {
+class AllBookingsPage extends StatefulWidget {
   final List<Map<String, dynamic>> bookings;
-  AllBookingsPage({required this.bookings});
+  const AllBookingsPage({super.key, required this.bookings});
 
-  Map<String, List<Map<String, dynamic>>> groupBookingsByMonth() {
+  @override
+  State<AllBookingsPage> createState() => _AllBookingsPageState();
+}
+
+class _AllBookingsPageState extends State<AllBookingsPage> {
+  void _cancelTicket(int index) {
+    final ticket = widget.bookings[index];
+    final refund = (ticket['totalPrice'] as int) * 0.5;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text("Refunded ₹$refund (50%)")));
+    setState(() {
+      widget.bookings.removeAt(index);
+    });
+  }
+
+  void _changeDate(int index) async {
+    final ticket = widget.bookings[index];
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: ticket['date'],
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      TimeOfDay time = TimeOfDay.fromDateTime(ticket['date']);
+      setState(() {
+        widget.bookings[index]['date'] = DateTime(
+            picked.year, picked.month, picked.day, time.hour, time.minute);
+      });
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> groupByMonth() {
     Map<String, List<Map<String, dynamic>>> grouped = {};
-    for (var booking in bookings) {
-      final date = booking['date'] as DateTime;
-      final monthKey = "${_monthName(date.month)} ${date.year}";
-      if (!grouped.containsKey(monthKey)) {
-        grouped[monthKey] = [];
-      }
-      grouped[monthKey]!.add(booking);
+    for (var ticket in widget.bookings) {
+      final dt = ticket['date'] as DateTime;
+      final key = "${dt.month}-${dt.year}";
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(ticket);
     }
     return grouped;
   }
 
-  String _monthName(int month) {
-    const months = [
-      '',
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ];
-    return months[month];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final groupedBookings = groupBookingsByMonth();
+    final grouped = groupByMonth();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Booked Tickets'),
-        backgroundColor: Color(0xffea2525),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.orange.shade50, Colors.deepOrange.shade200],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: bookings.isEmpty
-            ? Center(
-                child: Text(
-                  'No bookings yet',
-                  style: TextStyle(fontSize: 18, color: Colors.black54),
-                ),
-              )
-            : ListView(
-                children: groupedBookings.entries.map((entry) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        child: Text(
-                          entry.key,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepOrange,
-                          ),
+          title: const Text("Booked Tickets"), backgroundColor: Colors.red),
+      body: grouped.isEmpty
+          ? const Center(child: Text("No bookings yet"))
+          : ListView(
+              children: grouped.entries.map((entry) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text("Month: ${entry.key}",
+                          style: const TextStyle(fontWeight: FontWeight.bold))),
+                  ...entry.value.map((ticket) {
+                    final dt = ticket['date'] as DateTime;
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        title:
+                            Text("${ticket['bus']} - ₹${ticket['totalPrice']}"),
+                        subtitle: Text(
+                            "${ticket['name']} | ${ticket['from']} → ${ticket['to']}\nDate: ${dt.day}-${dt.month}-${dt.year} | Time: ${TimeOfDay.fromDateTime(dt).format(context)}\nQty: ${ticket['qty']}"),
+                        trailing: Column(
+                          children: [
+                            ElevatedButton(
+                                onPressed: () => _cancelTicket(
+                                    widget.bookings.indexOf(ticket)),
+                                child: const Text("Cancel")),
+                            const SizedBox(height: 4),
+                            ElevatedButton(
+                                onPressed: () => _changeDate(
+                                    widget.bookings.indexOf(ticket)),
+                                child: const Text("Change Date")),
+                          ],
                         ),
                       ),
-                      ...entry.value.map((booking) {
-                        final date = booking['date'] as DateTime;
-                        final formattedDate =
-                            "${date.toLocal().toString().split(' ')[0]}";
-                        final formattedTime =
-                            "${TimeOfDay.fromDateTime(date).format(context)}";
-
-                        return Card(
-                          color: Colors.white.withOpacity(0.9),
-                          elevation: 4,
-                          margin:
-                              EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(15),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("👤 Name: ${booking['name']}",
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold)),
-                                Text("📍 From: ${booking['source']}",
-                                    style: TextStyle(fontSize: 16)),
-                                Text("🎯 To: ${booking['destination']}",
-                                    style: TextStyle(fontSize: 16)),
-                                Text("📅 Date: $formattedDate",
-                                    style: TextStyle(fontSize: 16)),
-                                Text("⏰ Time: $formattedTime",
-                                    style: TextStyle(fontSize: 16)),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  );
-                }).toList(),
-              ),
-      ),
+                    );
+                  }).toList()
+                ],
+              );
+            }).toList()),
     );
   }
 }
